@@ -132,9 +132,9 @@ async function initialize() {
         statusText.textContent = 'Загрузка данных Корана...';
 
         // Try full data first, fall back to smaller dataset
-        let response = await fetch('./data/quran_full.json').catch(() => null);
+        let response = await fetch('data/quran_full.json').catch(() => null);
         if (!response || !response.ok) {
-            response = await fetch('./data/quran.json');
+            response = await fetch('data/quran.json');
         }
         quranData = await response.json();
 
