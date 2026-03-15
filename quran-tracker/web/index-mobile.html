@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Quran Tracker — متتبع القرآن</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Noto+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header id="header">
+            <div class="header-left">
+                <span id="surah-name-ar" class="surah-ar"></span>
+                <span id="surah-name-ru" class="surah-ru"></span>
+            </div>
+            <div class="header-right">
+                <span id="ayah-indicator" class="ayah-num"></span>
+            </div>
+        </header>
+
+        <!-- Arabic Text Panel -->
+        <section id="arabic-panel">
+            <div id="arabic-container">
+                <p id="arabic-text" class="arabic-text">
+                    بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+                </p>
+            </div>
+        </section>
+
+        <!-- Translation Panel -->
+        <section id="translation-panel">
+            <div id="translation-container">
+                <p id="translation-text" class="translation-text">
+                    Во имя Аллаха, Милостивого, Милосердного.
+                </p>
+            </div>
+        </section>
+
+        <!-- Match Score Indicator -->
+        <div id="match-info">
+            <span id="match-score"></span>
+        </div>
+
+        <!-- Controls -->
+        <footer id="controls">
+            <button id="btn-listen" class="btn btn-primary">
+                <span class="btn-icon">🎤</span>
+                <span class="btn-label">Слушать</span>
+            </button>
+            <button id="btn-stop" class="btn btn-danger" style="display:none">
+                <span class="btn-icon">⏹</span>
+                <span class="btn-label">Стоп</span>
+            </button>
+            <button id="btn-history" class="btn btn-secondary">
+                <span class="btn-icon">📖</span>
+                <span class="btn-label">История</span>
+            </button>
+        </footer>
+
+        <!-- History Modal -->
+        <div id="history-modal" class="modal" style="display:none">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>История чтений</h2>
+                    <button id="btn-close-history" class="btn-close">&times;</button>
+                </div>
+                <div id="history-list" class="history-list">
+                    <p class="empty-state">Пока нет записей</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div id="status-bar">
+            <span id="status-text">Загрузка...</span>
+        </div>
+    </div>
+
+    <script src="app-standalone.js"></script>
+</body>
+</html>
