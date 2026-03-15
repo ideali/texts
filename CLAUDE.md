@@ -49,9 +49,29 @@ Claude Code sandbox blocks external network. For tasks requiring external APIs:
 1. Use GitHub Actions workflows (they have full network access)
 2. Commit download scripts, trigger workflow, data gets committed back
 3. Never try to curl/fetch external APIs directly — it will fail
+4. To trigger a workflow: `gh workflow run <name>.yml` (if gh CLI is available)
+
+## Deploying Changes
+Two methods:
+1. **Auto-deploy**: push to `main` → GitHub Actions rsync to VPS
+2. **Manual trigger**: `gh workflow run deploy.yml --ref main`
+
+Always commit and push — the CI/CD pipeline handles the rest.
+
+## Downloading / Updating Data
+Never try to fetch external APIs from sandbox. Instead:
+1. Run "Fetch Quran Data" workflow: `gh workflow run fetch-data.yml -f source=saadi`
+2. Or commit a download script and trigger the workflow
+3. Data gets committed back to the repo automatically
 
 ## VPS Setup (one-time)
 Server: 31.40.29.176 (aniner.xyz)
 Web root: /var/www/quran-tracker/
 Web server: nginx
 URL: https://aniner.xyz/quran/
+Required GitHub Secrets: `VPS_USER`, `VPS_SSH_KEY`
+
+## SessionStart Hook
+`.claude/hooks/setup-env.sh` runs at every session start.
+It sets environment variables and verifies data files exist.
+Config: `.claude/settings.json`
