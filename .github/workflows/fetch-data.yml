@@ -1,0 +1,44 @@
+name: Fetch Quran Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'What to download'
+        required: true
+        default: 'saadi'
+        type: choice
+        options:
+          - saadi
+          - full-quran
+          - both
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download As-Saadi tafsir
+        if: inputs.source == 'saadi' || inputs.source == 'both'
+        run: cd quran-tracker && python3 download_saadi.py
+
+      - name: Download full Quran data
+        if: inputs.source == 'full-quran' || inputs.source == 'both'
+        run: cd quran-tracker && python3 fetch_quran_full.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add quran-tracker/web/data/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update Quran data (automated fetch)"
+            git push
+          fi
