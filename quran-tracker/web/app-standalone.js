@@ -131,7 +131,11 @@ async function initialize() {
     try {
         statusText.textContent = 'Загрузка данных Корана...';
 
-        const response = await fetch('./data/quran.json');
+        // Try full data first, fall back to smaller dataset
+        let response = await fetch('./data/quran_full.json').catch(() => null);
+        if (!response || !response.ok) {
+            response = await fetch('./data/quran.json');
+        }
         quranData = await response.json();
 
         // Pre-compute cleaned versions
