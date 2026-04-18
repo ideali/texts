@@ -1,0 +1,442 @@
+/* ── Quran Recitation Tracker ── */
+/* Dark warm theme with Arabic RTL text */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #2c2416;
+  --bg-secondary: #1e1a12;
+  --bg-panel: #3a3224;
+  --text-arabic: #f0e6d3;
+  --text-secondary: #b8a88a;
+  --text-muted: #7a6f5e;
+  --accent: #b48c3c;
+  --accent-dim: rgba(180, 140, 60, 0.15);
+  --accent-glow: rgba(180, 140, 60, 0.25);
+  --error: #c0564b;
+  --success: #6b9e6b;
+  --spoken-weight: 700;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 768px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── Loading state ── */
+
+#loading-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  flex: 1;
+}
+
+.loading-status-main {
+  font-size: 1.1rem;
+  color: var(--text-arabic);
+  margin-bottom: 20px;
+}
+
+.loading-progress-track {
+  width: 100%;
+  max-width: 300px;
+  height: 4px;
+  background: var(--bg-panel);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.loading-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.loading-status-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ── Ready / recording states ── */
+
+#ready-state,
+#recording-state,
+#post-recording {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  gap: 16px;
+}
+
+.ready-prompt {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.rec-btn {
+  padding: 14px 36px;
+  border: none;
+  border-radius: 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rec-btn:active {
+  transform: scale(0.97);
+}
+
+.rec-btn--start {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.rec-btn--start:hover {
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.rec-btn--stop {
+  background: var(--error);
+  color: #fff;
+}
+
+.action-btn {
+  padding: 12px 28px;
+  border: 1px solid var(--text-muted);
+  border-radius: 24px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.action-btn:hover {
+  background: var(--bg-panel);
+}
+
+/* ── Listening indicator ── */
+
+#listening-indicator {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 48px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+#listening-indicator.active {
+  display: flex;
+}
+
+#listening-indicator.has-verses {
+  bottom: 120px;
+}
+
+.pulse-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  position: absolute;
+}
+
+.pulse-ring {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+}
+
+#listening-indicator.active .pulse-ring:nth-child(1) {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+#listening-indicator.active .pulse-ring:nth-child(2) {
+  animation: pulse-ring 2s ease-out 0.6s infinite;
+}
+
+#listening-indicator.active .pulse-ring:nth-child(3) {
+  animation: pulse-ring 2s ease-out 1.2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    width: 12px;
+    height: 12px;
+    opacity: 0.6;
+  }
+  100% {
+    width: 48px;
+    height: 48px;
+    opacity: 0;
+  }
+}
+
+#listening-indicator.audio-detected .pulse-dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+#listening-indicator.silence .pulse-dot {
+  background: var(--text-muted);
+}
+
+/* ── Listening status text ── */
+
+#listening-status {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.listening-status-main {
+  font-size: 1rem;
+  color: var(--text-arabic);
+  margin-bottom: 4px;
+}
+
+.listening-status-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ── Verse display ── */
+
+#verses {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 140px;
+  scroll-behavior: smooth;
+}
+
+.verse-group {
+  animation: fade-in 0.3s ease;
+}
+
+.verse-group--exiting {
+  animation: fade-out 0.4s ease forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.surah-header {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--accent);
+  padding: 12px 0 8px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.bismillah {
+  text-align: center;
+  font-family: 'Amiri', 'Amiri Quran', 'Traditional Arabic', 'Scheherazade New', serif;
+  font-size: 1.6rem;
+  line-height: 2;
+  color: var(--text-arabic);
+  padding: 8px 0 16px;
+  opacity: 0.7;
+}
+
+.verse-body {
+  font-family: 'Amiri', 'Amiri Quran', 'Traditional Arabic', 'Scheherazade New', serif;
+  font-size: 1.8rem;
+  line-height: 2.4;
+  color: var(--text-arabic);
+}
+
+/* ── Verse states ── */
+
+.verse {
+  transition: opacity 0.3s ease, background 0.3s ease;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.verse--upcoming {
+  opacity: 0.4;
+}
+
+.verse--active {
+  opacity: 1;
+  background: var(--accent-dim);
+}
+
+.verse--recited {
+  opacity: 0.55;
+}
+
+/* ── Word states ── */
+
+.word {
+  transition: font-weight 0.2s ease, color 0.2s ease;
+  cursor: default;
+}
+
+.word--spoken {
+  font-weight: var(--spoken-weight);
+}
+
+.word--error {
+  color: var(--error);
+  text-decoration: wavy underline var(--error);
+  text-underline-offset: 6px;
+}
+
+/* ── Verse marker (ayah number) ── */
+
+.verse-marker {
+  font-size: 0.75em;
+  color: var(--text-muted);
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+/* ── Translation bar ── */
+
+#translation-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--bg-panel);
+  padding: 12px 20px 16px;
+  max-width: 768px;
+  margin: 0 auto;
+  z-index: 10;
+}
+
+#surah-indicator {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+#translation-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  min-height: 1.5em;
+}
+
+/* ── Raw transcript ── */
+
+#raw-transcript {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 16px;
+  max-width: 80%;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 15;
+  pointer-events: none;
+  direction: rtl;
+}
+
+#raw-transcript.visible {
+  opacity: 0.7;
+}
+
+/* ── Offline badge ── */
+
+#offline-badge {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 4px 10px;
+  border-radius: 12px;
+  z-index: 20;
+}
+
+#model-status.ready {
+  color: var(--success);
+}
+
+.badge-sep {
+  margin: 0 4px;
+  color: var(--text-muted);
+}
+
+/* ── Permission prompt ── */
+
+#permission-prompt {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Responsive ── */
+
+@media (min-width: 600px) {
+  .verse-body {
+    font-size: 2.2rem;
+    line-height: 2.6;
+  }
+
+  .bismillah {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .verse-body {
+    font-size: 1.5rem;
+    line-height: 2.2;
+  }
+}

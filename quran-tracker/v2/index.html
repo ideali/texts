@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tarteel</title>
+    <meta name="theme-color" content="#2c2416">
+  </head>
+  <body>
+    <div id="app">
+      <div id="loading-status">
+        <p class="loading-status-main">Preparing model...</p>
+        <div class="loading-progress-track">
+          <div class="loading-progress-fill" id="loading-progress"></div>
+        </div>
+        <p class="loading-status-sub" id="loading-detail">Downloading</p>
+      </div>
+      <div id="listening-status" hidden>
+        <p class="listening-status-main">Listening...</p>
+        <p class="listening-status-sub">Begin your recitation</p>
+      </div>
+      <div id="ready-state" hidden>
+        <p class="ready-prompt">Tap to begin recitation</p>
+        <button id="btn-start" class="rec-btn rec-btn--start">Start</button>
+      </div>
+      <div id="recording-state" hidden>
+        <button id="btn-stop" class="rec-btn rec-btn--stop">Stop</button>
+      </div>
+      <div id="post-recording" hidden>
+        <button id="btn-restart" class="action-btn action-btn--restart">Start Again</button>
+      </div>
+      <div id="verses"></div>
+      <div id="translation-bar">
+        <div id="surah-indicator"></div>
+        <div id="translation-text"></div>
+      </div>
+      <div id="raw-transcript"></div>
+      <div id="listening-indicator">
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-dot"></div>
+      </div>
+      <div id="permission-prompt" hidden>
+        <p>Microphone access is needed to listen to your recitation.</p>
+      </div>
+      <div id="offline-badge">
+        <span id="model-status">Loading model...</span>
+        <span class="badge-sep">&middot;</span>
+        on-device recognition
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
