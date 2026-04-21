@@ -422,6 +422,28 @@ function handleRawTranscript(event: any): void {
   rawTranscript.classList.add('visible');
 }
 
+// ── VAD (instant pause/speech detection from AudioWorklet) ──
+
+function handleVadEvent(data: { event: string; durationMs?: number }): void {
+  if (data.event === 'pause') {
+    // Instant UI feedback: update listening indicator
+    listeningIndicator.classList.remove('audio-detected');
+    listeningIndicator.classList.add('silence');
+
+    // Forward VAD hint to worker for faster tracking decisions
+    if (state.worker) {
+      state.worker.postMessage({ type: 'vad_pause', durationMs: data.durationMs });
+    }
+  } else if (data.event === 'speech') {
+    listeningIndicator.classList.add('audio-detected');
+    listeningIndicator.classList.remove('silence');
+
+    if (state.worker) {
+      state.worker.postMessage({ type: 'vad_speech' });
+    }
+  }
+}
+
 // ── Worker message router ──
 
 function handleWorkerMessage(event: any): void {
@@ -476,43 +498,34 @@ async function startAudio(): Promise<void> {
     const workletNode = new AudioWorkletNode(ctx, 'audio-stream-processor');
 
     workletNode.port.onmessage = (msg: MessageEvent) => {
-      const samples = new Float32Array(msg.data);
-      if (state.worker) {
-        state.worker.postMessage(
-          { type: 'audio', samples },
-          [samples.buffer],
-        );
+      const data = msg.data;
+
+      if (data.type === 'vad') {
+        handleVadEvent(data);
+      } else if (data.type === 'audio') {
+        // New format: audio chunks come with type discriminator
+        const samples = new Float32Array(data.buffer);
+        if (state.worker) {
+          state.worker.postMessage(
+            { type: 'audio', samples },
+            [samples.buffer],
+          );
+        }
+      } else if (data instanceof ArrayBuffer) {
+        // Legacy format: raw ArrayBuffer (backwards compat)
+        const samples = new Float32Array(data);
+        if (state.worker) {
+          state.worker.postMessage(
+            { type: 'audio', samples },
+            [samples.buffer],
+          );
+        }
       }
     };
 
-    // Audio level visualization
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
+    // VAD runs inside AudioWorklet -- no need for AnalyserNode.
+    // Audio level visualization is driven by VAD events (handleVadEvent).
     source.connect(workletNode);
-
-    const timeDomain = new Float32Array(analyser.fftSize);
-
-    const visualize = () => {
-      if (!state.isActive) return;
-      analyser.getFloatTimeDomainData(timeDomain);
-
-      let rms = 0;
-      for (let i = 0; i < timeDomain.length; i++) {
-        rms += timeDomain[i] * timeDomain[i];
-      }
-
-      if (Math.sqrt(rms / timeDomain.length) > 0.01) {
-        listeningIndicator.classList.add('audio-detected');
-        listeningIndicator.classList.remove('silence');
-      } else {
-        listeningIndicator.classList.remove('audio-detected');
-        listeningIndicator.classList.add('silence');
-      }
-
-      requestAnimationFrame(visualize);
-    };
-    visualize();
 
     state.isActive = true;
     listeningIndicator.classList.add('active');

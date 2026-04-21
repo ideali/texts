@@ -927,6 +927,44 @@ export class RecitationTracker {
   _emitDiagnostic(data: Record<string, unknown>): void {
     this.options.onDiagnostic?.(data);
   }
+
+  // ── VAD hints from AudioWorklet (instant, ~50ms latency) ──
+
+  /**
+   * Called when AudioWorklet detects a pause (~200ms of silence).
+   * In tracking mode, this triggers an immediate ASR cycle instead of
+   * waiting for the next 500ms tracking trigger. This cuts perceived
+   * latency for ayah transitions from ~500-1600ms to ~200-300ms.
+   */
+  onVadPause(durationMs: number): void {
+    if (this.trackingVerse !== null && durationMs >= 200) {
+      // Force immediate transcription on next feed() by pretending
+      // we have enough new audio
+      this.newAudioCount = Math.max(this.newAudioCount, TRACKING_TRIGGER);
+      this._emitDiagnostic({
+        type: 'vad_pause',
+        durationMs,
+        mode: 'tracking',
+        forced_trigger: true,
+      });
+    }
+
+    // Update silence counter with VAD's more accurate measurement
+    // VAD runs at ~2.67ms resolution vs 300ms audio chunk resolution
+    const vadSilenceSamples = Math.round((durationMs / 1000) * SAMPLE_RATE);
+    this.silenceSamples = Math.max(this.silenceSamples, vadSilenceSamples);
+  }
+
+  /**
+   * Called when AudioWorklet detects speech onset.
+   * Resets silence counter immediately rather than waiting for
+   * the next audio chunk to arrive.
+   */
+  onVadSpeech(): void {
+    this.silenceSamples = 0;
+    this.utteranceHasSpeech = true;
+    this.didFinalFlush = false;
+  }
 }
 
 // ── Sliding window similarity (used for residual detection) ──

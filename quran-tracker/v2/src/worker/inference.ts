@@ -223,5 +223,14 @@ self.onmessage = async (e: MessageEvent) => {
     for (const event of events) {
       postMsg(event);
     }
+  } else if (msg.type === 'vad_pause') {
+    // Instant pause detection from AudioWorklet (~50ms latency vs 300ms+ from ASR)
+    if (tracker) {
+      tracker.onVadPause(msg.durationMs ?? 200);
+    }
+  } else if (msg.type === 'vad_speech') {
+    if (tracker) {
+      tracker.onVadSpeech();
+    }
   }
 };
