@@ -267,7 +267,8 @@ export const ACOUSTIC_OVERRIDE_THRESHOLD = 0.25;
 export const SHORT_RESCUE_LIMIT = 200;
 
 // Tracking mode
-export const TRACKING_TRIGGER = SAMPLE_RATE * 0.5;                // 8000
+export const TRACKING_TRIGGER = SAMPLE_RATE * 0.5;                // 8000 (VAD-forced)
+export const TRACKING_TRIGGER_RELAXED = SAMPLE_RATE * 1.5;        // 24000 (routine cycle)
 export const TRACKING_SILENCE_TIMEOUT = SAMPLE_RATE * 4;           // 64000
 export const TRACKING_MAX_AUDIO = SAMPLE_RATE * 30;                // 480000
 export const STALE_CYCLES = 4;

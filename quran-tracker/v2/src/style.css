@@ -292,7 +292,7 @@ html, body {
 /* ── Verse states ── */
 
 .verse {
-  transition: opacity 0.3s ease, background 0.3s ease;
+  transition: opacity 0.15s ease-out, background 0.15s ease-out;
   border-radius: 4px;
   padding: 2px 4px;
 }
@@ -313,12 +313,13 @@ html, body {
 /* ── Word states ── */
 
 .word {
-  transition: font-weight 0.2s ease, color 0.2s ease;
+  transition: font-weight 0.12s ease-out, color 0.12s ease-out, opacity 0.12s ease-out;
   cursor: default;
 }
 
 .word--spoken {
   font-weight: var(--spoken-weight);
+  opacity: 1;
 }
 
 .word--error {

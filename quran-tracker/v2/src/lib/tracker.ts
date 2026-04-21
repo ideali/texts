@@ -20,6 +20,7 @@ import {
   SILENCE_THRESHOLD,
   SILENCE_FLUSH,
   TRACKING_TRIGGER,
+  TRACKING_TRIGGER_RELAXED,
   TRACKING_SILENCE_TIMEOUT,
   TRACKING_MAX_AUDIO,
   STALE_CYCLES,
@@ -48,6 +49,7 @@ import {
 import { levenshteinSimilarity } from './ctc-rescore';
 import { scoreSequence, rescoreAll, pickLongestInMargin } from './ctc-rescore';
 import { getCorrections } from './phoneme-aligner';
+import { getAyahTimings, loadSurahTimings, estimateWordPosition } from './timing-cache';
 
 // ── Helpers ──
 
@@ -162,6 +164,13 @@ export class RecitationTracker {
   cyclesSinceCommit = Infinity;
   lastTrackingResult: TranscribeResult | null = null;
   consecutiveAutoAdvances = 0;
+  vadPauseHint = false;  // set by onVadPause(), consumed by _handleTracking()
+
+  // Predictive cursor state
+  trackingStartTime = 0;          // performance.now() when tracking started
+  predictiveTempoRatio = 1.0;     // EMA of actual/reference speed
+  predictiveLastWordIdx = -1;     // last word index emitted by prediction
+  private _timings: import('./timing-cache').AyahTimings | null = null;
 
   constructor(db: QuranDB, transcribe: TranscribeFn, options: TrackerOptions = {}) {
     this.db = db;
@@ -194,6 +203,15 @@ export class RecitationTracker {
     const isFinalFlush =
       this.utteranceHasSpeech && !this.didFinalFlush && this.silenceSamples >= SILENCE_FLUSH;
 
+    // Predictive cursor: emit word progress between ASR cycles
+    // This runs every 300ms audio chunk, before the ASR gate check
+    if (this.trackingVerse !== null && this._timings && !isSilent(samples)) {
+      const predicted = this._predictWordPosition();
+      if (predicted !== null) {
+        events.push(predicted);
+      }
+    }
+
     if (this.trackingVerse !== null) {
       events.push(...(await this._handleTracking(isFinalFlush)));
     } else {
@@ -221,8 +239,11 @@ export class RecitationTracker {
     const events: TrackerEvent[] = [];
     if (!this.trackingVerse) return events;
 
-    // Gate: wait for enough new audio or silence timeout
-    if (!isFinalFlush && this.newAudioCount < TRACKING_TRIGGER) {
+    // Gate: VAD-forced cycles use TRACKING_TRIGGER (0.5s),
+    // routine cycles use TRACKING_TRIGGER_RELAXED (1.5s) to save CPU.
+    // onVadPause() sets newAudioCount >= TRACKING_TRIGGER for instant response.
+    const triggerThreshold = this.vadPauseHint ? TRACKING_TRIGGER : TRACKING_TRIGGER_RELAXED;
+    if (!isFinalFlush && this.newAudioCount < triggerThreshold) {
       if (this.silenceSamples >= TRACKING_SILENCE_TIMEOUT) {
         this._rollbackWeakCommit('tracking silence timeout');
         this._exitTracking('extended silence');
@@ -231,6 +252,7 @@ export class RecitationTracker {
     }
 
     this.newAudioCount = 0;
+    this.vadPauseHint = false;  // consumed
     const result = await this.transcribe(this.utteranceAudio.slice());
     this.lastTrackingResult = result;
 
@@ -278,6 +300,9 @@ export class RecitationTracker {
     this.staleCycles = 0;
     this.trackingProgressEstablished = true;
     this.trackingLastWordIdx = matchedIndices[matchedIndices.length - 1];
+
+    // Calibrate predictive cursor tempo from ASR-confirmed position
+    this._calibrateTempo(this.trackingLastWordIdx);
 
     const wordsMatched = this.trackingLastWordIdx + 1;
     events.push({
@@ -867,6 +892,21 @@ export class RecitationTracker {
       }))
       .filter((p) => p.ids.length > 0);
 
+    // Start predictive cursor
+    this.trackingStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    this.predictiveLastWordIdx = -1;
+    this._timings = getAyahTimings(verse.surah, verse.ayah);
+
+    // Pre-load surah timings in background (non-blocking)
+    if (!this._timings) {
+      loadSurahTimings(verse.surah).then(() => {
+        // Update timings if still tracking same verse
+        if (this.trackingVerse?.surah === verse.surah && this.trackingVerse?.ayah === verse.ayah) {
+          this._timings = getAyahTimings(verse.surah, verse.ayah);
+        }
+      });
+    }
+
     this._retainTailAfterCommit();
   }
 
@@ -928,6 +968,63 @@ export class RecitationTracker {
     this.options.onDiagnostic?.(data);
   }
 
+  // ── Predictive cursor ──
+
+  /**
+   * Estimate current word position based on elapsed time and reference
+   * timing data from Quran.com API. Emits word_progress events between
+   * ASR cycles, giving near-zero latency word highlighting.
+   *
+   * Returns a word_progress event if the predicted position advanced,
+   * or null if no prediction is available/needed.
+   */
+  _predictWordPosition(): TrackerEvent | null {
+    if (!this.trackingVerse || !this._timings) return null;
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const elapsedMs = now - this.trackingStartTime;
+    const predicted = estimateWordPosition(elapsedMs, this._timings, this.predictiveTempoRatio);
+
+    // Only emit if prediction is ahead of ASR-confirmed position
+    // and ahead of last prediction (monotonically increasing)
+    if (predicted <= this.trackingLastWordIdx || predicted <= this.predictiveLastWordIdx) {
+      return null;
+    }
+
+    this.predictiveLastWordIdx = predicted;
+
+    return {
+      type: 'word_progress',
+      surah: this.trackingVerse.surah,
+      ayah: this.trackingVerse.ayah,
+      word_index: predicted + 1,
+      total_words: this.trackingVerseWords.length,
+      matched_indices: [predicted],
+    };
+  }
+
+  /**
+   * Calibrate tempo ratio when ASR confirms a word position.
+   * Uses exponential moving average for smooth adaptation.
+   */
+  _calibrateTempo(asrWordIdx: number): void {
+    if (!this._timings || asrWordIdx < 0) return;
+
+    const word = this._timings.words.find(w => w.wordIndex === asrWordIdx);
+    if (!word) return;
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const actualMs = now - this.trackingStartTime;
+    const referenceMs = word.startMs;
+
+    if (referenceMs > 100 && actualMs > 100) {
+      // tempo = reference / actual: >1 means imam reads faster than reference
+      const instantTempo = referenceMs / actualMs;
+      // EMA with alpha=0.3 for smooth adaptation
+      this.predictiveTempoRatio = 0.7 * this.predictiveTempoRatio + 0.3 * instantTempo;
+    }
+  }
+
   // ── VAD hints from AudioWorklet (instant, ~50ms latency) ──
 
   /**
@@ -939,7 +1036,8 @@ export class RecitationTracker {
   onVadPause(durationMs: number): void {
     if (this.trackingVerse !== null && durationMs >= 200) {
       // Force immediate transcription on next feed() by pretending
-      // we have enough new audio
+      // we have enough new audio and setting the hint flag
+      this.vadPauseHint = true;
       this.newAudioCount = Math.max(this.newAudioCount, TRACKING_TRIGGER);
       this._emitDiagnostic({
         type: 'vad_pause',
