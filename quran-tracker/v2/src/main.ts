@@ -10,10 +10,12 @@
 
 import './style.css';
 
-// Worker URL: in the production build, Vite emits inference-[hash].js as a separate entry.
-// The `new URL` pattern makes Vite resolve the asset path at build time.
+// Worker URL: Vite builds inference.ts as a separate entry with stable name.
 // At runtime we fetch as text -> Blob URL for Arc browser compatibility.
-const InferenceWorkerUrl = /* @vite-ignore */ new URL('../worker/inference.ts', import.meta.url).href;
+const BASE = import.meta.env.BASE_URL; // "/quran/" in production
+const InferenceWorkerUrl = import.meta.env.DEV
+  ? new URL('../worker/inference.ts', import.meta.url).href
+  : BASE + 'assets/inference.js';
 
 // ── Types ──
 

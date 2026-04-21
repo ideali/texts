@@ -12,10 +12,10 @@ export default defineConfig({
         inference: resolve(__dirname, 'src/worker/inference.ts'),
       },
       output: {
-        // Worker gets its own chunk with a stable name pattern
         entryFileNames: (chunkInfo) => {
+          // Worker gets a stable name (no hash) so main.ts can reference it
           if (chunkInfo.name === 'inference') {
-            return 'assets/[name]-[hash].js';
+            return 'assets/inference.js';
           }
           return 'assets/[name]-[hash].js';
         },
